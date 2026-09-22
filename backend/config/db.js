@@ -1,23 +1,30 @@
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
-  const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/medibot';
+  const uri = process.env.MONGODB_URI;
+
+  if (!uri) {
+    console.log('[Database] No MONGODB_URI set — activating in-memory data store.');
+    await seedMemoryStore();
+    return;
+  }
 
   try {
-    // Attempt standard connection with 1.5-second timeout
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 1500,
+      serverSelectionTimeoutMS: 5000,
     });
-    console.log(`[Database] MongoDB connected successfully to: ${mongoose.connection.host}`);
+    console.log(`[Database] ✅ MongoDB connected: ${mongoose.connection.host}`);
   } catch (err) {
-    console.log(`[Database] External MongoDB not active (${err.message}).`);
-    console.log(`[Database] Initializing Instant In-Memory Medical Database Fallback...`);
-    
-    // Auto-seed the in-memory store
-    const { seedDatabase } = require('../seeds/seed');
-    await seedDatabase();
-    console.log(`[Database] In-Memory Medical Database ready with sample departments, doctors & patients!`);
+    console.warn(`[Database] ⚠️  External MongoDB connection failed: ${err.message}`);
+    console.log('[Database] Activating in-memory fallback data store...');
+    await seedMemoryStore();
   }
+};
+
+const seedMemoryStore = async () => {
+  const { seedDatabase } = require('../seeds/seed');
+  await seedDatabase();
+  console.log('[Database] ✅ In-memory data store ready with sample hospital data!');
 };
 
 const disconnectDB = async () => {
